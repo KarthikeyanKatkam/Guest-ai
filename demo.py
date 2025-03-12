@@ -2,14 +2,10 @@ import streamlit as st
 from datetime import date
 import pandas as pd
 import random
-import joblib
-import xgboost
-import numpy as np
-from sklearn.preprocessing import LabelEncoder
 from pymongo import MongoClient
 import os
 from langchain_together import TogetherEmbeddings
-from pinecone import Pinecone, ServerlessSpec
+from pinecone import Pinecone
 from together import Together
 
 # MongoDB Connection
@@ -34,13 +30,25 @@ def load_excel_file(filename, rename_cols=None):
 
 # Initialize Pinecone
 def init_pinecone():
-    pc_api_key = os.getenv("PINECONE_API_KEY") or st.secrets.get("PINECONE_API_KEY")
+    # Attempt to retrieve the API key from environment variables or Streamlit secrets
+    pc_api_key = os.getenv("5492062267d446ef604e77b4495550013e28a71c18c2547d4cf72e00bc1fa6d4")  # Use a valid environment variable name
     if not pc_api_key:
-        pc_api_key = st.text_input("Enter Pinecone API Key:", type="password")
-        st.session_state.pc_api_key = pc_api_key
-    else:
-        st.session_state.pc_api_key = pc_api_key
+        try:
+            pc_api_key = st.secrets["5492062267d446ef604e77b4495550013e28a71c18c2547d4cf72e00bc1fa6d4"]  # Try retrieving from Streamlit secrets
+        except KeyError:
+            pass  # Handle missing secrets below
 
+    # If still not found, prompt the user to input the API key
+    if not pc_api_key:
+        pc_api_key = st.text_input("Enter Pinecone API Key:", type="password", key="pinecone_api_key_input")
+        if not pc_api_key:
+            st.error("❌ Pinecone API Key is required to proceed.")
+            st.stop()
+
+    # Store the API key in session state for reuse
+    st.session_state.pc_api_key = pc_api_key
+
+    # Initialize Pinecone with the API key
     return Pinecone(api_key=st.session_state.pc_api_key)
 
 # Main App
@@ -154,7 +162,7 @@ elif choice == "Analyze Sentiment":
                 filtered_reviews = df[df["review_id"].isin(review_ids)]
                 
                 # Generate summary with LLM
-                client = Together(api_key='5492062267d446ef604e77b4495550013e28a71c18c2547d4cf72e00bc1fa6d4')
+                client = Together(api_key=st.session_state.pc_api_key)  # Use the stored API key
                 response = client.chat.completions.create(
                     model="meta-llama/Llama-Vision-Free",
                     messages=[{
@@ -163,7 +171,7 @@ elif choice == "Analyze Sentiment":
                     }]
                 )
                 
-                st.subheader(" sentiment summary")
+                st.subheader("Sentiment Summary")
                 st.write(response.choices[0].message.content)
 
 # Footer
